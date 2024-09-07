@@ -1,7 +1,7 @@
 from flask_login import UserMixin
 from sqlalchemy.orm import relationship
-
-from . import db
+from sqlalchemy import event
+from . import db, s3_client
 
 
 class User(db.Model, UserMixin):
@@ -56,7 +56,7 @@ class Batch(db.Model):
         'Image',
         back_populates='batch',
         cascade='save-update, merge, delete',
-        passive_deletes=True,
+        passive_deletes=False,
     )
 
 
@@ -117,3 +117,21 @@ class MlModels(db.Model):
 def is_model_exists_in_db(model_path):
     existing_model = MlModels.query.filter_by(model=model_path).first()
     return existing_model is not None
+
+@db.event.listens_for(Image, "after_delete")
+def after_delete_listener(mapper, connection, target):
+    s3_key = target.image
+    try:
+        s3_client.delete_object(Bucket='wbc-app', Key=s3_key)
+    except Exception as e:
+        print("Error deleting")
+
+@db.event.listens_for(Batch, 'after_delete')
+def after_batch_delete(mapper, connection, target):
+    # Iterate over the associated images and delete from S3
+    #raise RuntimeError(target.image_r)
+    for image in target.image_r:
+        try:
+            s3_client.delete_object(Bucket='wbc-app', Key=image.image)
+        except Exception as e:
+            print(f"Error deleting object from S3: {e}")

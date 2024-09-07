@@ -93,8 +93,8 @@
                     <span class="badge badge-secondary">{{ image.name }}</span>
                 </td>
                 <td>
-                    <a href="{{ url_for('static', filename=image.image) }}" target="_blank">
-                        <img src="{{ url_for('static', filename=image.image) }}" style="width: 100px; height: 100px;"/>
+                    <a href="{{ image.image }}" target="_blank">
+                        <img src="{{ image.image }}" style="width: 100px; height: 100px;"/>
                     </a>
                 </td>
                 <td>

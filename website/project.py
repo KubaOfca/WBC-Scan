@@ -5,7 +5,9 @@ import os
 import shutil
 import tempfile
 import time
+import mimetypes
 from datetime import datetime
+
 
 import pandas as pd
 import plotly
@@ -29,14 +31,14 @@ PIE = "Pie"
 
 @project_views.route("/project", methods=["GET", "POST"])
 def project():
-    if request.method == "POST":
-        batch = Batch.query.filter_by(project_id=session["project_id"],
-                                      name=request.form.get("batch-select")).first()
-        session["batch_id"] = batch.id if batch is not None else -1
-        session["batch_name"] = batch.name if batch is not None else "none"
-        session["batch_stats"] = list(map(int, request.form.getlist("batch-stats-select")))
-        session["plot_type"] = request.form.get("plot-type-select")
-        session["wbc_class_names"] = request.form.getlist("wbc-class-select")
+    #if request.method == "POST":
+    batch = Batch.query.filter_by(project_id=session["project_id"],
+                                  name=request.form.get("batch-select")).first()
+    session["batch_id"] = batch.id if batch is not None else -1
+    session["batch_name"] = batch.name if batch is not None else "none"
+    session["batch_stats"] = list(map(int, request.form.getlist("batch-stats-select")))
+    session["plot_type"] = request.form.get("plot-type-select")
+    session["wbc_class_names"] = request.form.getlist("wbc-class-select")
     project_id = request.args.get("project_id", type=int)
     page = request.args.get("page", type=int)
     tab = request.args.get("tab", type=int)
@@ -57,13 +59,21 @@ def project():
 
 
 def get_project_images():
-    images = Image.query.filter_by(project_id=session["project_id"],
+    images_query = Image.query.filter_by(project_id=session["project_id"],
                                    batch_id=session["batch_id"] if "batch_id" in session else -1)
     first_image_on_page = IMAGE_TABLE_MAX_ROWS_DISPLAY * (session["image_page"] - 1)
     last_image_on_page = first_image_on_page + IMAGE_TABLE_MAX_ROWS_DISPLAY
-    session["total_rows"] = images.count()
-    session["last_page"] = max(math.ceil(images.count() / IMAGE_TABLE_MAX_ROWS_DISPLAY), 1)
-    return images[first_image_on_page:last_image_on_page]
+    session["total_rows"] = images_query.count()
+    session["last_page"] = max(math.ceil(images_query.count() / IMAGE_TABLE_MAX_ROWS_DISPLAY), 1)
+    images = images_query.offset(first_image_on_page).limit(IMAGE_TABLE_MAX_ROWS_DISPLAY).all()
+    for image in images:
+        db.session.expunge(image)
+        image.image = s3_tmp_url(image.image)
+    return images
+
+
+def s3_tmp_url(obj_key):
+    return s3_client.generate_presigned_url('get_object', Params={'Bucket': 'wbc-app', 'Key': obj_key}, ExpiresIn=3600)
 
 
 def stats():
@@ -199,19 +209,17 @@ async def upload_images():
             flash("No selected file", category="error")
             continue
         if image and allowed_file(image.filename):
+            image_s3_key = f'{session["project_id"]}_{session["batch_id"]}_{datetime.now().strftime("%d%m%y_%H%M%S")}_{image.filename.replace(" ", "_")}'
+            mime_type, _ = mimetypes.guess_type(image.filename)
+            if mime_type is None:
+                mime_type = 'application/octet-stream'
+            s3_client.upload_fileobj(image, "wbc-app", image_s3_key, ExtraArgs={"ContentType": mime_type})
             new_image = Image(
                 project_id=session["project_id"],
                 batch_id=session["batch_id"],
                 name=image.filename,
-                image=image.filename,
+                image=image_s3_key,
                 date=datetime.now(),
-            )
-            image.save(
-                os.path.join(
-                    "website",
-                    "static",
-                    image.filename,
-                )
             )
             db.session.add(new_image)
             db.session.commit()
@@ -236,7 +244,10 @@ def delete_image():
         if not image_id_to_delete:
             flash("No images selected", category="error")
         else:
-            db.session.query(Image).filter(Image.id.in_(image_id_to_delete)).delete()
+            images = Image.query.filter(Image.id.in_(image_id_to_delete)).all()
+            for image in images:
+                db.session.delete(image)
+            #db.session.query(Image).filter(Image.id.in_(image_id_to_delete)).delete()
             db.session.commit()
             flash("Images successfully deleted", category="success")
     return redirect(url_for("project_views.project", tab=IMAGE_TAB))
@@ -245,7 +256,9 @@ def delete_image():
 @project_views.route("/delete_batch", methods=["GET", "POST"])
 def delete_batch():
     if request.method == "POST":
-        db.session.query(Batch).filter(Batch.id == session["batch_id"]).delete()
+        batch = Batch.query.get(session["batch_id"])
+        db.session.delete(batch)
+        #db.session.query(Batch).filter(Batch.id == session["batch_id"]).delete()
         db.session.commit()
         flash("Batch successfully deleted", category="success")
     return redirect(url_for("project_views.project", tab=IMAGE_TAB))

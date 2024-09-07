@@ -13,7 +13,7 @@ import plotly.express as px
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session, send_file
 from ultralytics import YOLO
 
-from . import socket, db
+from . import socket, db, s3_client
 from .models import Image, Stats, MlModels, Batch
 from .utils import load_img_as_np_array, get_annotated_image_from_prediction, \
     get_prediction_stats, add_batch_to_db, get_unique_wbc_class_names

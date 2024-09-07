@@ -7,15 +7,17 @@ from flask_migrate import Migrate
 from flask_session import Session
 from flask_socketio import SocketIO
 from flask_sqlalchemy import SQLAlchemy
+import boto3
 
 db = SQLAlchemy()
 socket = SocketIO()
+s3_client = boto3.client('s3')
 
 
 def create_app():
     app = Flask(__name__)
     app.secret_key = "xyz"
-    app.config["SQLALCHEMY_DATABASE_URI"] = f"postgresql://postgres:postgres@localhost:5432/postgres"
+    app.config["SQLALCHEMY_DATABASE_URI"] = f"postgresql://wbcadmin:8MtoFLZgJ^Vz5EfirZxd!3mWHPVK8i@wbc-database.cxi2kc080ax0.us-east-1.rds.amazonaws.com:5432/wbc_db"
     app.config["SESSION_PERMANENT"] = False
     app.config["SESSION_TYPE"] = "filesystem"
 

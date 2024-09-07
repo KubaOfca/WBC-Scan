@@ -31,14 +31,14 @@ PIE = "Pie"
 
 @project_views.route("/project", methods=["GET", "POST"])
 def project():
-    #if request.method == "POST":
-    batch = Batch.query.filter_by(project_id=session["project_id"],
-                                  name=request.form.get("batch-select")).first()
-    session["batch_id"] = batch.id if batch is not None else -1
-    session["batch_name"] = batch.name if batch is not None else "none"
-    session["batch_stats"] = list(map(int, request.form.getlist("batch-stats-select")))
-    session["plot_type"] = request.form.get("plot-type-select")
-    session["wbc_class_names"] = request.form.getlist("wbc-class-select")
+    if request.args.get("refresh", type=int) is not None or request.method == "POST":
+        batch = Batch.query.filter_by(project_id=session["project_id"],
+                                      name=request.form.get("batch-select")).first()
+        session["batch_id"] = batch.id if batch is not None else -1
+        session["batch_name"] = batch.name if batch is not None else "none"
+        session["batch_stats"] = list(map(int, request.form.getlist("batch-stats-select")))
+        session["plot_type"] = request.form.get("plot-type-select")
+        session["wbc_class_names"] = request.form.getlist("wbc-class-select")
     project_id = request.args.get("project_id", type=int)
     page = request.args.get("page", type=int)
     tab = request.args.get("tab", type=int)
@@ -69,6 +69,8 @@ def get_project_images():
     for image in images:
         db.session.expunge(image)
         image.image = s3_tmp_url(image.image)
+        if image.annotated_image is not None:
+            image.annotated_image = s3_tmp_url(image.annotated_image)
     return images
 
 
@@ -152,7 +154,7 @@ def create_batch():
     if request.method == "POST":
         add_batch_to_db(session["project_id"], batch_name=request.form.get("new-batch-name"))
         flash("Batch created!", category="success")
-    return redirect(url_for("project_views.project", tab=3))
+    return redirect(url_for("project_views.project", tab=3, refresh=1))
 
 
 @project_views.route("/run", methods=["POST"])
@@ -174,12 +176,12 @@ async def run():
             progress_bar_step += progress_bar_step_size
             socket.emit("update progress", min(progress_bar_step, 100))
             annotated_image = get_annotated_image_from_prediction(prediction)
-            annotated_image.save(os.path.join(
-                "website",
-                "static",
-                f"annotated_{image.name}",
-            ))
-            image.annotated_image = f"annotated_{image.name}"
+            ann_image_s3_key = f'{session["project_id"]}_{session["batch_id"]}_{datetime.now().strftime("%d%m%y_%H%M%S")}_annotated_{image.name.replace(" ", "_")}'
+            mime_type, _ = mimetypes.guess_type(image.name)
+            if mime_type is None:
+                mime_type = 'application/octet-stream'
+            s3_client.upload_fileobj(annotated_image, "wbc-app", ann_image_s3_key, ExtraArgs={"ContentType": mime_type})
+            image.annotated_image = ann_image_s3_key
             db.session.commit()
             prediction_stats = get_prediction_stats(prediction)
             existing_stats = db.session.query(Stats).filter(Stats.image_id == image.id)
@@ -261,7 +263,7 @@ def delete_batch():
         #db.session.query(Batch).filter(Batch.id == session["batch_id"]).delete()
         db.session.commit()
         flash("Batch successfully deleted", category="success")
-    return redirect(url_for("project_views.project", tab=IMAGE_TAB))
+    return redirect(url_for("project_views.project", tab=IMAGE_TAB, refresh=1))
 
 
 @project_views.route("/export", methods=["GET", "POST"])
@@ -295,10 +297,10 @@ def export():
                 classes_file.write(f"{names}\n")
         os.mkdir(os.path.join(tmp_dir, "images"))
         os.mkdir(os.path.join(tmp_dir, "labels"))
-        for image_path, data in df.groupby("image"):
-            shutil.copy(os.path.join("website", "static", image_path), os.path.join(tmp_dir, "images", image_path))
+        for image_name, data in df.groupby("name"):
+            s3_client.download_file("wbc-app", data.image.iloc[0], os.path.join(tmp_dir, "images", image_name))
             data[["class_id", "box_coords"]].to_csv(
-                os.path.join(tmp_dir, "labels", f"{os.path.splitext(image_path)[0]}.txt"), header=False,
+                os.path.join(tmp_dir, "labels", f"{os.path.splitext(image_name)[0]}.txt"), header=False,
                 index=False, sep=" ", doublequote=False, escapechar=' ', quoting=csv.QUOTE_NONE)
         shutil.make_archive(tmp_dir, "zip", tmp_dir)
         return send_file(f"{tmp_dir}.zip", as_attachment=True, download_name="results.zip")

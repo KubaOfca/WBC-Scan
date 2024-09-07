@@ -1,4 +1,4 @@
-<form id="post-select" action="{{ url_for('project_views.project', project_id=session['project_id'], tab=3) }}"
+<form id="post-select" action="{{ url_for('project_views.project', project_id=session['project_id'], tab=3, page=1) }}"
       method="post">
     <div style="text-align: center">
         <select name="batch-select" class="selectpicker" id="batch-select" title="Choose batch...">
@@ -99,8 +99,8 @@
                 </td>
                 <td>
                     {% if image.annotated_image is not none %}
-                    <a href="{{ url_for('static', filename=image.annotated_image) }}" target="_blank">
-                        <img src="{{ url_for('static', filename=image.annotated_image) }}"
+                    <a href="{{ image.annotated_image }}" target="_blank">
+                        <img src="{{ image.annotated_image }}"
                              style="width: 100px; height: 100px;"/>
                     </a>
                     {% else %}

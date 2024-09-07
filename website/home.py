@@ -30,8 +30,11 @@ def delete_project():
         if not projects_id_to_delete:
             flash("No projects selected", category="error")
         else:
-            db.session.query(Project).filter(Project.id.in_(projects_id_to_delete),
-                                             Project.user_id == current_user.id).delete()
+            #db.session.query(Project).filter(Project.id.in_(projects_id_to_delete),
+            #                                 Project.user_id == current_user.id).delete()
+            projects = Project.query.filter(Project.id.in_(projects_id_to_delete), Project.user_id == current_user.id).all()
+            for project in projects:
+                db.session.delete(project)
             db.session.commit()
             flash("Project successfully deleted", category="success")
     return redirect(url_for("home_views.home"))

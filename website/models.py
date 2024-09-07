@@ -15,7 +15,7 @@ class User(db.Model, UserMixin):
         'Project',
         back_populates='user',
         cascade='save-update, merge, delete',
-        passive_deletes=True,
+        passive_deletes=False,
     )
 
 
@@ -29,13 +29,13 @@ class Project(db.Model):
         'Batch',
         back_populates='project',
         cascade='save-update, merge, delete',
-        passive_deletes=True,
+        passive_deletes=False,
     )
     image_r = relationship(
         'Image',
         back_populates='project',
         cascade='save-update, merge, delete',
-        passive_deletes=True,
+        passive_deletes=False,
     )
     user = relationship(
         'User',
@@ -81,7 +81,7 @@ class Image(db.Model):
         'Stats',
         back_populates='image',
         cascade='save-update, merge, delete',
-        passive_deletes=True,
+        passive_deletes=False,
     )
 
 
@@ -121,8 +121,11 @@ def is_model_exists_in_db(model_path):
 @db.event.listens_for(Image, "after_delete")
 def after_delete_listener(mapper, connection, target):
     s3_key = target.image
+    s3_key_ann = target.annotated_image
     try:
         s3_client.delete_object(Bucket='wbc-app', Key=s3_key)
+        if s3_key_ann is not None:
+            s3_client.delete_object(Bucket='wbc-app', Key=s3_key_ann)
     except Exception as e:
         print("Error deleting")
 

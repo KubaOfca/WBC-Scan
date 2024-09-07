@@ -5,8 +5,9 @@ from typing import List
 import numpy as np
 from PIL import Image as PILImage
 from flask_login import current_user
+from io import BytesIO
 
-from website import db
+from website import db, s3_client
 from website.models import Project, Batch, Stats
 
 
@@ -34,11 +35,18 @@ def add_batch_to_db(project_id: int, batch_name: str):
 
 
 def load_img_as_np_array(image_path: str) -> np.array:
-    return np.array(PILImage.open(os.path.join("website", "static", image_path)))
+    response = s3_client.get_object(Bucket="wbc-app", Key=image_path)
+    image_data = response["Body"].read()
+    image = PILImage.open(BytesIO(image_data))
+    return np.array(image)
 
 
 def get_annotated_image_from_prediction(prediction) -> PILImage.Image:
-    return PILImage.fromarray(prediction[0].plot()[..., ::-1])
+    pil_image = PILImage.fromarray(prediction[0].plot()[..., ::-1])
+    img_buff = BytesIO()
+    pil_image.save(img_buff, format="JPEG")
+    img_buff.seek(0)
+    return img_buff
 
 
 def get_prediction_stats(prediction):

@@ -1,11 +1,11 @@
 # WBC-Scan
 
-[![AWS](https://img.shields.io/badge/AWS-232F3E?style=flat&logo=amazon-aws&logoColor=white)](https://aws.amazon.com/)
+[![AWS](https://img.shields.io/badge/AWS-232F3E?style=flat&logo=amazon-aws&logoColor=white)](https://aws.amazon.com/) 
 [![Flask](https://img.shields.io/badge/Flask-000000?style=flat&logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-0061F2?style=flat&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 
 ## Overview 🧐  
-**WBC-Scan** uses convolutional neural networks (CNNs) 🤖 to automatically detect and classify leukocytes in microscopic images 🔬. While it can work with any CNN model, the current version uses YOLO ("You Only Look Once") 👀. This tool makes hematology research easier by automating tasks, cutting down on manual effort 🕒. It’s hosted on AWS ☁️ for a smooth and easy-to-use experience 📊.
+**WBC-Scan** uses convolutional neural networks (CNNs) 🤖 to automatically detect and classify leukocytes in microscopic images 🔬. While it can work with any CNN model, the current version uses YOLO ("You Only Look Once") 👀. This tool makes hematology research easier by automating tasks, cutting down on manual effort 🕒. It’s hosted on AWS ☁️ (but currently, the page is **not active** 🚫) for a smooth and easy-to-use experience 📊.
 
 ## Features ✨  
 - **Flexible Model Support** 🛠️: Compatible with any CNN model (currently YOLO) 🏃‍♂️.  
